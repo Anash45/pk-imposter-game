@@ -11,6 +11,11 @@
   <meta name="language" content="English">
   <meta name="revisit-after" content="7 days">
   <meta name="theme-color" content="#ff4081">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Imposter Game">
+  <meta name="application-name" content="Pakistani Imposter Game">
+  <meta name="mobile-web-app-capable" content="yes">
   
   <!-- Open Graph / Social Media Meta Tags -->
   <meta property="og:type" content="website">
@@ -36,8 +41,9 @@
   <link rel="icon" type="image/x-icon" href="./images/favicons/favicon.ico">
   <link rel="icon" type="image/png" sizes="32x32" href="./images/favicons/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="./images/favicons/favicon-16x16.png">
-  <link rel="apple-touch-icon" href="./images/favicons/apple-touch-icon.png" sizes="180x180">
-  <link rel="manifest" href="./images/favicons/site.webmanifest">
+  <link rel="apple-touch-icon" href="./images/favicons/apple-touch-icon.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="./images/favicons/apple-touch-icon.png">
+  <link rel="manifest" href="./images/favicons/site.webmanifest" crossorigin="use-credentials">
   <link rel="canonical" href="https://imposter.f4futuretech.com/">
   
   <style>
@@ -754,7 +760,7 @@
     // Register service worker for offline functionality and installability
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/service-worker.js')
+        navigator.serviceWorker.register('./service-worker.js', { scope: './' })
           .then((registration) => {
             console.log('Service Worker registered successfully:', registration);
           })
