@@ -3,7 +3,7 @@ const STATIC_ASSETS = [
   '/',
   '/index.html',
   '/wordDatabase.js',
-  '/images/logo.jpg',
+  '/images/logo.png',
   '/images/favicons/favicon.ico',
   '/images/favicons/favicon-16x16.png',
   '/images/favicons/favicon-32x32.png',
