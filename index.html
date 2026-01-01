@@ -36,7 +36,7 @@
   <link rel="icon" type="image/x-icon" href="./images/favicons/favicon.ico">
   <link rel="icon" type="image/png" sizes="32x32" href="./images/favicons/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="./images/favicons/favicon-16x16.png">
-  <link rel="apple-touch-icon" href="./images/favicons/apple-touch-icon.png">
+  <link rel="apple-touch-icon" href="./images/favicons/apple-touch-icon.png" sizes="180x180">
   <link rel="manifest" href="./images/favicons/site.webmanifest">
   <link rel="canonical" href="https://yourdomain.com/games/">
   
@@ -748,5 +748,21 @@
       Whether you're celebrating a family dawat, hosting a mehndi party, or simply looking for a fun activity to enjoy with friends, the Pakistani Imposter Game delivers engaging entertainment that celebrates Pakistani culture and traditions.
     </p>
   </footer>
+
+  <!-- Service Worker Registration for PWA -->
+  <script>
+    // Register service worker for offline functionality and installability
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/games/service-worker.js')
+          .then((registration) => {
+            console.log('Service Worker registered successfully:', registration);
+          })
+          .catch((error) => {
+            console.log('Service Worker registration failed:', error);
+          });
+      });
+    }
+  </script>
 </body>
 </html>
