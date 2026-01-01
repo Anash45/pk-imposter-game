@@ -1,15 +1,15 @@
 const CACHE_NAME = 'imposter-game-v1';
 const STATIC_ASSETS = [
-  '/games/',
-  '/games/index.html',
-  '/games/wordDatabase.js',
-  '/games/images/logo.jpg',
-  '/games/images/favicons/favicon.ico',
-  '/games/images/favicons/favicon-16x16.png',
-  '/games/images/favicons/favicon-32x32.png',
-  '/games/images/favicons/apple-touch-icon.png',
-  '/games/images/favicons/android-chrome-192x192.png',
-  '/games/images/favicons/android-chrome-512x512.png',
+  '/',
+  '/index.html',
+  '/wordDatabase.js',
+  '/images/logo.jpg',
+  '/images/favicons/favicon.ico',
+  '/images/favicons/favicon-16x16.png',
+  '/images/favicons/favicon-32x32.png',
+  '/images/favicons/apple-touch-icon.png',
+  '/images/favicons/android-chrome-192x192.png',
+  '/images/favicons/android-chrome-512x512.png',
 ];
 
 // Install event - cache static assets
