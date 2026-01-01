@@ -70,7 +70,7 @@ self.addEventListener('fetch', (event) => {
         return response;
       }).catch(() => {
         // Return offline fallback if available
-        return caches.match('/games/index.html');
+        return caches.match('/index.html');
       });
     })
   );
