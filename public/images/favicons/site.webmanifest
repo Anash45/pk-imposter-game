@@ -1,0 +1,56 @@
+{
+  "name": "Pakistani Imposter Game",
+  "short_name": "Imposter Game",
+  "description": "A fun multiplayer party game featuring Pakistani culture and traditions",
+  "start_url": "https://imposter.f4futuretech.com/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "theme_color": "#ff4081",
+  "background_color": "#f5f7fa",
+  "categories": ["games", "entertainment"],
+  "prefer_related_applications": false,
+  "screenshots": [
+    {
+      "src": "/images/logo.png",
+      "sizes": "192x192",
+      "type": "image/jpeg",
+      "form_factor": "narrow"
+    },
+    {
+      "src": "/images/logo.png",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "form_factor": "wide"
+    }
+  ],
+  "icons": [
+    {
+      "src": "/images/favicons/favicon-16x16.png",
+      "sizes": "16x16",
+      "type": "image/png"
+    },
+    {
+      "src": "/images/favicons/favicon-32x32.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    },
+    {
+      "src": "/images/favicons/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    },
+    {
+      "src": "/images/favicons/android-chrome-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/images/favicons/android-chrome-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

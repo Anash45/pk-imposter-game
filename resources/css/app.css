@@ -1,0 +1,16 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+    font-family: "Segoe UI", "Helvetica Neue", sans-serif;
+    background: linear-gradient(135deg, #f5f7fa, #e8eef5);
+    color: #2c3e50;
+    margin: 0;
+    padding: 16px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
