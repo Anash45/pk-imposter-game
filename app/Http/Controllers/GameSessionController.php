@@ -21,6 +21,7 @@ class GameSessionController extends Controller
             'players.*' => 'required|string|min:1|max:100',
             'categories' => 'required|array|min:1',
             'categories.*' => 'required|string',
+            'imposters' => 'nullable|integer|min:1|max:5',
         ]);
 
         $categories = Category::with('words:id,category_id,value')
@@ -35,13 +36,25 @@ class GameSessionController extends Controller
 
         $word = $wordPool->shuffle()->first();
         $slug = Str::lower(Str::random(10));
-        $imposterIndex = random_int(0, count($data['players']) - 1);
+        
+        // ✅ Calculate number of imposters based on player count
+        $playerCount = count($data['players']);
+        $imposterCount = min($data['imposters'] ?? 1, $playerCount);
+        if ($playerCount >= 10) $imposterCount = min($imposterCount, 3);
+        elseif ($playerCount >= 6) $imposterCount = min($imposterCount, 2);
+        else $imposterCount = min($imposterCount, 1);
+        
+        // ✅ Randomly select multiple imposter indexes
+        $allIndexes = range(0, $playerCount - 1);
+        shuffle($allIndexes);
+        $imposterIndexes = array_slice($allIndexes, 0, $imposterCount);
 
         $game = Game::create([
             'slug' => $slug,
             'mode' => 'online',
             'categories' => $data['categories'],
             'word' => $word,
+            'imposters_count' => $imposterCount,
             'status' => 'active',
         ]);
 
@@ -52,7 +65,7 @@ class GameSessionController extends Controller
                 'game_id' => $game->id,
                 'name' => $name,
                 'token' => $token,
-                'is_imposter' => $idx === $imposterIndex,
+                'is_imposter' => in_array($idx, $imposterIndexes),
                 'position' => $idx,
             ]);
 

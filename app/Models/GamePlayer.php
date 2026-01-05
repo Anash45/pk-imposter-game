@@ -12,15 +12,18 @@ class GamePlayer extends Model
 
     protected $fillable = [
         'game_id',
+        'user_id',
         'name',
         'token',
         'is_imposter',
+        'is_moderator',
         'position',
         'viewed_at',
     ];
 
     protected $casts = [
         'is_imposter' => 'boolean',
+        'is_moderator' => 'boolean',
         'viewed_at' => 'datetime',
     ];
 
@@ -30,5 +33,13 @@ class GamePlayer extends Model
     public function game(): BelongsTo
     {
         return $this->belongsTo(Game::class);
+    }
+
+    /**
+     * @return BelongsTo<User, GamePlayer>
+     */
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
     }
 }
