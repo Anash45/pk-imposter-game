@@ -1,4 +1,6 @@
 import { Head } from "@inertiajs/react";
+import { useState } from "react";
+import Chat from "@/Components/Chat";
 
 const CARD_GRADIENTS = [
     "bg-gradient-to-br from-cyan-400 to-cyan-600 text-slate-900",
@@ -20,7 +22,9 @@ const hashString = (value) => {
     return hash;
 };
 
-export default function PlayerCard({ playerName, alreadyViewed, isImposter, word, voiceUrl }) {
+export default function PlayerCard({ playerName, alreadyViewed, isImposter, word, voiceUrl, gameSlug }) {
+    const [chatOpen, setChatOpen] = useState(false);
+    
     const display = alreadyViewed
         ? {
               title: "Card already revealed",
@@ -62,6 +66,24 @@ export default function PlayerCard({ playerName, alreadyViewed, isImposter, word
                         >
                             Join group voice chat
                         </a>
+                    )}
+
+                    {gameSlug && (
+                        <button
+                            onClick={() => setChatOpen(true)}
+                            className="fixed bottom-4 right-4 bg-blue-500 text-white rounded-full w-14 h-14 flex items-center justify-center shadow-lg hover:bg-blue-600"
+                            aria-label="Open Chat"
+                        >
+                            💬
+                        </button>
+                    )}
+
+                    {chatOpen && (
+                        <Chat
+                            gameSlug={gameSlug}
+                            playerName={playerName}
+                            onClose={() => setChatOpen(false)}
+                        />
                     )}
                 </div>
             </div>

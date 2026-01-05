@@ -15,11 +15,11 @@ class GameController extends Controller
             return Category::with('words:id,category_id,value')
                 ->orderBy('name')
                 ->get()
-                ->mapWithKeys(function (Category $category) {
+                ->map(function (Category $category) {
                     return [
-                        $category->name => $category->words
-                            ->pluck('value')
-                            ->values(),
+                        'id' => $category->id,
+                        'name' => $category->name,
+                        'words' => $category->words->pluck('value')->values(),
                     ];
                 });
         });

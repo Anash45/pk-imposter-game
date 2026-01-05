@@ -26,7 +26,7 @@ export default function Welcome({ categories = {} }) {
     const [step, setStep] = useState("players"); // players | categories | game | share
     const [currentPlayerIndex, setCurrentPlayerIndex] = useState(0);
     const [currentWord, setCurrentWord] = useState("");
-    const [imposterIndex, setImposterIndex] = useState(-1);
+    const [imposterIndexes, setImposterIndexes] = useState([]);
     const [cardColors, setCardColors] = useState([]);
     const [cardFlipped, setCardFlipped] = useState(false);
     const [hasViewed, setHasViewed] = useState(false);
@@ -40,28 +40,38 @@ export default function Welcome({ categories = {} }) {
         () => playerInputs.map((p) => p.trim()).filter(Boolean),
         [playerInputs]
     );
+    useEffect(() => {
+        setPlayers(activePlayers); // optional: only if you use `players` state
+    }, [activePlayers]);
+    const playerCount = activePlayers.length;
 
-    const allWords = useMemo(
-        () => selectedCategories.flatMap((cat) => categories[cat] || []),
-        [selectedCategories, categories]
-    );
+    const maxImposters =
+        playerCount >= 10 ? 3 : playerCount >= 6 ? 2 : playerCount >= 3 ? 1 : 0;
+
+    const [imposterCount, setImposterCount] = useState(1);
+
+    useEffect(() => {
+        if (imposterCount > maxImposters) {
+            setImposterCount(maxImposters || 1);
+        }
+    }, [maxImposters]);
+
+    const allWords = useMemo(() => {
+        return categories
+            .filter((category) => selectedCategories.includes(category.name))
+            .flatMap((category) => category.words ?? []);
+    }, [selectedCategories, categories]);
 
     useEffect(() => {
         setPlayers(activePlayers);
     }, [activePlayers]);
 
-    // useEffect(() => {
-    //     if ("serviceWorker" in navigator) {
-    //         navigator.serviceWorker
-    //             .register("/service-worker.js", { scope: "/" })
-    //             .catch(() => {});
-    //     }
-    // }, []);
 
     const canGoToCategories = activePlayers.length >= MIN_PLAYERS;
     const canStartRound = allWords.length >= MIN_WORDS;
     const currentPlayer = players[currentPlayerIndex];
-    const cardGradient = CARD_GRADIENTS[(cardColors[currentPlayerIndex] || 1) - 1];
+    const cardGradient =
+        CARD_GRADIENTS[(cardColors[currentPlayerIndex] || 1) - 1];
 
     const shuffle = (items) => {
         const copy = [...items];
@@ -73,16 +83,26 @@ export default function Welcome({ categories = {} }) {
     };
 
     const addPlayerInput = () => {
-        setPlayerInputs((prev) => [...prev, ""]);
+        setPlayerInputs((prev) => [
+            ...prev,
+            `Player ${playerInputs.length + 1}`,
+        ]);
     };
 
     const updatePlayerInput = (index, value) => {
-        setPlayerInputs((prev) => prev.map((p, i) => (i === index ? value : p)));
+        setPlayerInputs((prev) =>
+            prev.map((p, i) => (i === index ? value : p))
+        );
     };
 
     const removePlayerInput = (index) => {
-        setPlayerInputs((prev) => prev.filter((_, i) => i !== index));
-    };
+    setPlayerInputs((prev) => prev.filter((_, i) => i !== index));
+
+    // remove any imposter index that no longer exists
+    setImposterIndexes((prev) =>
+        prev.filter((idx) => idx !== index && idx < prev.length - 1)
+    );
+};
 
     const goToCategories = () => {
         if (!canGoToCategories) return;
@@ -109,8 +129,13 @@ export default function Welcome({ categories = {} }) {
         }
     };
 
-    const voiceUrl = gameSlug ? `https://meet.jit.si/pk-imposter-${gameSlug}` : "";
-    const lobbyUrl = gameSlug ? `${window.location.origin}/games/${gameSlug}` : "";
+    const voiceUrl = gameSlug
+        ? `https://meet.jit.si/pk-imposter-${gameSlug}`
+        : "";
+    const lobbyUrl = gameSlug
+        ? `${window.location.origin}/games/${gameSlug}`
+        : "";
+    const hostUrl = `${window.location.origin}/`;
 
     const startNewRound = async () => {
         if (!canStartRound || creatingOnline) return;
@@ -118,11 +143,15 @@ export default function Welcome({ categories = {} }) {
         setShareLinks([]);
         setGameSlug("");
 
+        // -------- ONLINE MODE --------
         if (mode === "online") {
             setCreatingOnline(true);
+
             try {
                 const token =
-                    document.querySelector('meta[name="csrf-token"]')?.getAttribute("content") ?? "";
+                    document
+                        .querySelector('meta[name="csrf-token"]')
+                        ?.getAttribute("content") ?? "";
 
                 const response = await fetch("/games", {
                     method: "POST",
@@ -135,37 +164,61 @@ export default function Welcome({ categories = {} }) {
                         mode: "online",
                         players: activePlayers,
                         categories: selectedCategories,
+                        imposters: imposterCount, // ✅ NEW
                     }),
                 });
 
                 if (!response.ok) {
                     const err = await response.json().catch(() => ({}));
-                    throw new Error(err.message || "Unable to create online game.");
+                    throw new Error(
+                        err.message || "Unable to create online game."
+                    );
                 }
 
                 const data = await response.json();
+
                 setShareLinks(data.players || []);
                 setGameSlug(data.game?.slug || "");
                 setStep("share");
+
                 toast.success("Online game created. Share the links below.");
             } catch (error) {
-                toast.error(error.message || "Something went wrong creating the online game.");
+                toast.error(
+                    error.message ||
+                        "Something went wrong creating the online game."
+                );
             } finally {
                 setCreatingOnline(false);
             }
+
+            return;
+        }
+
+        // -------- OFFLINE / LOCAL MODE --------
+        if (!allWords.length) {
+            toast.error("No words available for selected categories.");
             return;
         }
 
         const orderedPlayers = [...players];
         const word = shuffle(allWords)[0];
+
         const colors = orderedPlayers.map(
             () => Math.floor(Math.random() * COLOR_COUNT) + 1
         );
 
+        // ✅ Pick MULTIPLE imposter indexes
+        const imposterIndexes = shuffle(
+            orderedPlayers.map((_, idx) => idx)
+        ).slice(0, imposterCount);
+
         setPlayers(orderedPlayers);
         setCurrentWord(word);
         setCardColors(colors);
-        setImposterIndex(Math.floor(Math.random() * orderedPlayers.length));
+
+        // 🔁 REPLACE single index with array
+        setImposterIndexes(imposterIndexes);
+
         setCurrentPlayerIndex(0);
         setCardFlipped(false);
         setHasViewed(false);
@@ -213,8 +266,12 @@ export default function Welcome({ categories = {} }) {
                 <div className="text-left">
                     <div className="font-semibold">Secret word:</div>
                     <div className="mb-2">{currentWord}</div>
-                    <div className="font-semibold">Imposter:</div>
-                    <div>{players[imposterIndex]}</div>
+                    <div className="font-semibold">
+                        Imposter{imposterIndexes.length > 1 ? "s" : ""}:
+                    </div>
+                    <div>
+                        {imposterIndexes.map((idx) => players[idx]).join(", ")}
+                    </div>
                 </div>
             ),
             { duration: 6000 }
@@ -236,6 +293,10 @@ export default function Welcome({ categories = {} }) {
         startNewRound();
     };
 
+    const selectAllCategories = () => {
+        setSelectedCategories(categories.map((cat) => cat.name));
+    };
+
     return (
         <>
             <Head>
@@ -249,7 +310,11 @@ export default function Welcome({ categories = {} }) {
                     {step === "players" && (
                         <div className="border-b-4 border-pink-500 pb-6 mb-6 flex flex-col items-center gap-3">
                             <div className="text-6xl animate-pulse">
-                                <img src="/images/logo.png" alt="Logo" className="h-24 w-24 rounded-full" />
+                                <img
+                                    src="/images/logo.png"
+                                    alt="Logo"
+                                    className="h-24 w-24 rounded-full"
+                                />
                             </div>
                             <div className="text-cyan-300 tracking-[0.2em] font-semibold text-lg">
                                 PAKISTANI IMPOSTER GAME
@@ -292,7 +357,9 @@ export default function Welcome({ categories = {} }) {
                                 </button>
                             </div>
                             <p className="text-sm text-slate-600 mb-6">
-                                Offline: everyone uses the same device. Online: generate one-time links per player (no account needed).
+                                Offline: everyone uses the same device. Online:
+                                generate one-time links per player (no account
+                                needed).
                             </p>
                             <button
                                 className="bg-pink-500 hover:bg-pink-600 text-white font-semibold px-4 py-2 rounded-xl shadow-md shadow-pink-300/50 transition"
@@ -302,17 +369,27 @@ export default function Welcome({ categories = {} }) {
                             </button>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-6">
                                 {playerInputs.map((value, idx) => (
-                                    <div key={idx} className="flex items-center gap-2">
+                                    <div
+                                        key={idx}
+                                        className="flex items-center gap-2"
+                                    >
                                         <input
                                             type="text"
                                             className="flex-1 rounded-xl border-2 border-slate-200 bg-slate-50 px-4 py-3 text-base text-slate-800 focus:outline-none focus:border-pink-500 focus:bg-white transition"
                                             placeholder={`Player ${idx + 1}`}
                                             value={value}
-                                            onChange={(e) => updatePlayerInput(idx, e.target.value)}
+                                            onChange={(e) =>
+                                                updatePlayerInput(
+                                                    idx,
+                                                    e.target.value
+                                                )
+                                            }
                                         />
                                         <button
                                             className="px-3 py-3 rounded-xl bg-slate-200 text-slate-700 font-bold hover:bg-slate-300"
-                                            onClick={() => removePlayerInput(idx)}
+                                            onClick={() =>
+                                                removePlayerInput(idx)
+                                            }
                                         >
                                             ✕
                                         </button>
@@ -330,13 +407,50 @@ export default function Welcome({ categories = {} }) {
                                     </span>
                                 ))}
                             </div>
+                            {maxImposters > 0 && (
+                                <div className="my-6">
+                                    <p className="text-sm font-semibold text-slate-700 mb-2">
+                                        Number of Imposters
+                                    </p>
+
+                                    <div className="flex justify-center gap-3">
+                                        {Array.from(
+                                            { length: maxImposters },
+                                            (_, i) => i + 1
+                                        ).map((count) => (
+                                            <button
+                                                key={count}
+                                                onClick={() =>
+                                                    setImposterCount(count)
+                                                }
+                                                className={`px-4 py-2 rounded-xl font-semibold border-2 transition ${
+                                                    imposterCount === count
+                                                        ? "bg-rose-500 border-rose-500 text-white shadow-md shadow-rose-300/60"
+                                                        : "bg-white border-slate-200 text-slate-700 hover:border-rose-400"
+                                                }`}
+                                            >
+                                                {count}
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    <p className="text-xs text-slate-500 mt-2">
+                                        Allowed: 1 – {maxImposters} imposters
+                                        for {playerCount} players
+                                    </p>
+                                </div>
+                            )}
 
                             <button
                                 className="mt-2 bg-pink-500 hover:bg-pink-600 text-white font-semibold px-6 py-3 rounded-xl shadow-md shadow-pink-300/60 transition disabled:opacity-50 disabled:cursor-not-allowed"
                                 onClick={goToCategories}
                                 disabled={!canGoToCategories}
                             >
-                                {canGoToCategories ? "Next → Categories" : `Need ${MIN_PLAYERS - activePlayers.length} more`}
+                                {canGoToCategories
+                                    ? "Next → Categories"
+                                    : `Need ${
+                                          MIN_PLAYERS - activePlayers.length
+                                      } more`}
                             </button>
                         </section>
                     )}
@@ -346,8 +460,12 @@ export default function Welcome({ categories = {} }) {
                             <h2 className="text-2xl sm:text-3xl font-semibold text-slate-800 mb-4">
                                 Step 2: Pick Categories
                             </h2>
+
                             <p className="text-base text-indigo-300 mb-2">
-                                <strong>Current Players:</strong> <span className="text-cyan-300">{players.join(", ")}</span>
+                                <strong>Current Players:</strong>{" "}
+                                <span className="text-cyan-300">
+                                    {players.join(", ")}
+                                </span>
                                 <button
                                     className="ml-4 px-3 py-2 text-sm rounded-lg bg-slate-200 text-slate-700 hover:bg-slate-300"
                                     onClick={goBackToPlayers}
@@ -357,36 +475,81 @@ export default function Welcome({ categories = {} }) {
                             </p>
 
                             <p className="text-lg font-semibold text-slate-800 my-4">
-                                Selected words: <span className="text-pink-500">{allWords.length}</span> / {MIN_WORDS}+
+                                Selected words:{" "}
+                                <span className="text-pink-500">
+                                    {allWords.length}
+                                </span>{" "}
+                                / {MIN_WORDS}+
                             </p>
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 my-6">
-                                {Object.keys(categories).map((cat) => {
-                                    const selected = selectedCategories.includes(cat);
-                                    const count = categories[cat]?.length ?? 0;
+                                {/* Select all */}
+                                <div className="sm:col-span-2 flex justify-center">
+                                    <button
+                                        className={`rounded-2xl w-full border-2 px-4 py-4 text-lg font-medium transition cursor-pointer shadow-sm ${
+                                            selectedCategories.length ===
+                                            categories.length
+                                                ? "bg-pink-500 text-white border-pink-500 shadow-pink-300/60"
+                                                : "bg-slate-50 text-slate-800 border-slate-200 hover:-translate-y-1 hover:border-pink-500 hover:shadow-lg"
+                                        }`}
+                                        onClick={() => {
+                                            const allSelected =
+                                                selectedCategories.length ===
+                                                categories.length;
+
+                                            setSelectedCategories(
+                                                allSelected
+                                                    ? []
+                                                    : categories.map(
+                                                          (c) => c.name
+                                                      )
+                                            );
+                                        }}
+                                    >
+                                        {selectedCategories.length ===
+                                        categories.length
+                                            ? "Clear all categories"
+                                            : "Select all categories"}
+                                    </button>
+                                </div>
+
+                                {/* Categories */}
+                                {categories.map((category) => {
+                                    const selected =
+                                        selectedCategories.includes(
+                                            category.name
+                                        );
+                                    const count = category.words?.length ?? 0;
+
                                     return (
                                         <div
-                                            key={cat}
+                                            key={category.id}
                                             className={`rounded-2xl border-2 px-4 py-4 text-lg font-medium transition cursor-pointer shadow-sm ${
                                                 selected
                                                     ? "bg-pink-500 text-white border-pink-500 shadow-pink-300/60"
                                                     : "bg-slate-50 text-slate-800 border-slate-200 hover:-translate-y-1 hover:border-pink-500 hover:shadow-lg"
                                             }`}
-                                            onClick={() => toggleCategory(cat)}
+                                            onClick={() =>
+                                                toggleCategory(category.name)
+                                            }
                                         >
-                                            {cat} ({count})
+                                            {category.name} ({count})
                                         </div>
                                     );
                                 })}
                             </div>
 
                             <button
-                                className="mt-2 bg-pink-500 hover:bg-pink-600 text-white font-semibold px-6 py-3 rounded-xl shadow-md shadow-pink-300/60 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="mt-2 bg-green-500 hover:bg-green-600 text-white font-semibold px-6 py-4 w-full text-xl rounded-xl shadow-md shadow-pink-300/60 transition
+                       disabled:opacity-50 disabled:cursor-not-allowed"
                                 onClick={startNewRound}
                                 disabled={!canStartRound || creatingOnline}
                             >
                                 {!canStartRound
-                                    ? `Need ${MIN_WORDS - allWords.length} more words`
+                                    ? `Need ${Math.max(
+                                          0,
+                                          MIN_WORDS - allWords.length
+                                      )} more words`
                                     : creatingOnline
                                     ? "Creating..."
                                     : mode === "online"
@@ -402,15 +565,39 @@ export default function Welcome({ categories = {} }) {
                                 Share links with players
                             </h2>
                             <p className="text-slate-700 mb-4">
-                                Choose one: share a single lobby link where everyone clicks their name, or send individual one-time links.
+                                Choose one: share a single lobby link where
+                                everyone clicks their name, or send individual
+                                one-time links.
                             </p>
+
+                            <div className="flex flex-wrap justify-center gap-3 mb-4">
+                                <a
+                                    href={hostUrl}
+                                    className="rounded-xl bg-slate-100 px-4 py-2 text-slate-800 font-semibold border border-slate-200 hover:bg-slate-200"
+                                >
+                                    Open host controls
+                                </a>
+                                <button
+                                    className="rounded-xl bg-pink-500 px-4 py-2 text-white font-semibold shadow-md shadow-pink-200/70 hover:bg-pink-600"
+                                    onClick={resetToCategories}
+                                >
+                                    Back to setup
+                                </button>
+                            </div>
 
                             {lobbyUrl && (
                                 <div className="rounded-2xl border-2 border-blue-200 bg-blue-50 px-5 py-4 text-left shadow-sm mb-4">
                                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                                         <div>
-                                            <div className="text-lg font-semibold text-blue-700">🎮 Single lobby link (recommended)</div>
-                                            <div className="text-sm text-blue-800">One link for all players. They click their name to reveal their card.</div>
+                                            <div className="text-lg font-semibold text-blue-700">
+                                                🎮 Single lobby link
+                                                (recommended)
+                                            </div>
+                                            <div className="text-sm text-blue-800">
+                                                One link for all players. They
+                                                click their name to reveal their
+                                                card.
+                                            </div>
                                         </div>
                                         <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                                             <input
@@ -420,7 +607,9 @@ export default function Welcome({ categories = {} }) {
                                             />
                                             <button
                                                 className="rounded-xl bg-blue-500 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-blue-200/70 hover:bg-blue-600"
-                                                onClick={() => copyLink(lobbyUrl)}
+                                                onClick={() =>
+                                                    copyLink(lobbyUrl)
+                                                }
                                             >
                                                 Copy link
                                             </button>
@@ -437,67 +626,41 @@ export default function Welcome({ categories = {} }) {
                                 </div>
                             )}
 
-                            {voiceUrl && (
-                                <div className="rounded-2xl border-2 border-emerald-200 bg-emerald-50 px-5 py-4 text-left shadow-sm mb-4">
-                                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                                        <div>
-                                            <div className="text-lg font-semibold text-emerald-700">Group voice room (free)</div>
-                                            <div className="text-sm text-emerald-800">Powered by Jitsi; no account required, only host should login.</div>
-                                        </div>
-                                        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                                            <input
-                                                className="flex-1 rounded-xl border-2 border-emerald-200 bg-white px-3 py-2 text-sm text-emerald-900"
-                                                value={voiceUrl}
-                                                readOnly
-                                            />
-                                            <button
-                                                className="rounded-xl bg-emerald-500 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-emerald-200/70 hover:bg-emerald-600"
-                                                onClick={() => copyLink(voiceUrl)}
-                                            >
-                                                Copy link
-                                            </button>
-                                            <a
-                                                className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-emerald-700 border border-emerald-300 hover:bg-emerald-100 text-center"
-                                                href={voiceUrl}
-                                                target="_blank"
-                                                rel="noreferrer"
-                                            >
-                                                Open voice room
-                                            </a>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-
                             <details className="text-left mb-6">
                                 <summary className="cursor-pointer text-slate-700 font-semibold mb-2">
                                     Or use individual links (one per player)
                                 </summary>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-                                {shareLinks.length === 0 && (
-                                    <div className="col-span-full text-slate-600">No links generated yet.</div>
-                                )}
-                                {shareLinks.map((player) => (
-                                    <div
-                                        key={player.url}
-                                        className="rounded-2xl border-2 border-slate-200 bg-white p-4 text-left shadow-sm"
-                                    >
-                                        <div className="text-lg font-semibold text-slate-800">{player.name}</div>
-                                        <div className="mt-2 flex flex-col sm:flex-row gap-2">
-                                            <input
-                                                className="flex-1 rounded-xl border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700"
-                                                value={player.url}
-                                                readOnly
-                                            />
-                                            <button
-                                                className="whitespace-nowrap rounded-xl bg-emerald-500 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-emerald-200/70 hover:bg-emerald-600"
-                                                onClick={() => copyLink(player.url)}
-                                            >
-                                                Copy link
-                                            </button>
+                                    {shareLinks.length === 0 && (
+                                        <div className="col-span-full text-slate-600">
+                                            No links generated yet.
                                         </div>
-                                    </div>
-                                ))}
+                                    )}
+                                    {shareLinks.map((player) => (
+                                        <div
+                                            key={player.url}
+                                            className="rounded-2xl border-2 border-slate-200 bg-white p-4 text-left shadow-sm"
+                                        >
+                                            <div className="text-lg font-semibold text-slate-800">
+                                                {player.name}
+                                            </div>
+                                            <div className="mt-2 flex flex-col sm:flex-row gap-2">
+                                                <input
+                                                    className="flex-1 rounded-xl border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700"
+                                                    value={player.url}
+                                                    readOnly
+                                                />
+                                                <button
+                                                    className="whitespace-nowrap rounded-xl bg-emerald-500 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-emerald-200/70 hover:bg-emerald-600"
+                                                    onClick={() =>
+                                                        copyLink(player.url)
+                                                    }
+                                                >
+                                                    Copy link
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
                             </details>
 
@@ -507,7 +670,9 @@ export default function Welcome({ categories = {} }) {
                                     onClick={startNewRound}
                                     disabled={creatingOnline}
                                 >
-                                    {creatingOnline ? "Creating..." : "Create another online round"}
+                                    {creatingOnline
+                                        ? "Creating..."
+                                        : "Create another online round"}
                                 </button>
                                 <button
                                     className="rounded-xl bg-slate-200 px-6 py-3 text-slate-800 font-semibold hover:bg-slate-300"
@@ -521,10 +686,20 @@ export default function Welcome({ categories = {} }) {
 
                     {step === "game" && (
                         <section className="text-center">
-                            <h2 className={`text-xl sm:text-2xl font-semibold text-slate-800 mb-4 ${discussionReady ? "visible" : "invisible"}`}>
+                            <h2
+                                className={`text-xl sm:text-2xl font-semibold text-slate-800 mb-4 ${
+                                    discussionReady ? "visible" : "invisible"
+                                }`}
+                            >
                                 {discussionReady && (
                                     <>
-                                        <strong>{players.find((_, i) => i !== imposterIndex)}</strong> — start the discussion!
+                                        <strong>
+                                            {players.find(
+                                                (_, i) =>
+                                                    !imposterIndexes.includes(i)
+                                            )}
+                                        </strong>{" "}
+                                        — start the discussion!
                                     </>
                                 )}
                             </h2>
@@ -546,30 +721,38 @@ export default function Welcome({ categories = {} }) {
                             >
                                 <div
                                     className={`relative w-full h-full rounded-3xl shadow-2xl transition-transform duration-[900ms] ease-[cubic-bezier(0.68,-0.55,0.265,1.55)] [transform-style:preserve-3d] ${
-                                        cardFlipped ? "[transform:rotateY(180deg)]" : ""
+                                        cardFlipped
+                                            ? "[transform:rotateY(180deg)]"
+                                            : ""
                                     }`}
                                 >
-                                    <div
-                                        className="absolute inset-0 rounded-3xl flex items-center justify-center px-6 text-2xl font-bold text-center text-slate-100 bg-gradient-to-br from-slate-800 to-slate-700 [backface-visibility:hidden]"
-                                    >
+                                    <div className="absolute inset-0 rounded-3xl flex items-center justify-center px-6 text-2xl font-bold text-center text-slate-100 bg-gradient-to-br from-slate-800 to-slate-700 [backface-visibility:hidden]">
                                         {currentPlayer}
                                     </div>
                                     <div
                                         className={`absolute inset-0 rounded-3xl flex items-center justify-center px-6 text-2xl font-bold text-center whitespace-pre-line [transform:rotateY(180deg)] [backface-visibility:hidden] ${cardGradient}`}
                                     >
-                                        {currentPlayerIndex === imposterIndex ? "YOU ARE\nTHE IMPOSTER!" : currentWord}
+                                        {imposterIndexes.includes(
+                                            currentPlayerIndex
+                                        )
+                                            ? "YOU ARE\nTHE IMPOSTER!"
+                                            : currentWord}
                                     </div>
                                 </div>
                             </div>
 
                             <div className="text-lg font-medium text-slate-700 mb-4">
-                                {discussionReady ? "Everyone has seen their card!" : `Pass device to ${currentPlayer}`}
+                                {discussionReady
+                                    ? "Everyone has seen their card!"
+                                    : `Pass device to ${currentPlayer}`}
                             </div>
 
                             <div className="flex flex-col items-center gap-3">
                                 <button
                                     className={`bg-cyan-300 text-slate-900 font-semibold px-6 py-3 rounded-xl shadow-md shadow-cyan-200/60 transition ${
-                                        hasViewed && !discussionReady ? "block" : "hidden"
+                                        hasViewed && !discussionReady
+                                            ? "block"
+                                            : "hidden"
                                     }`}
                                     onClick={proceedToNext}
                                 >
@@ -578,7 +761,9 @@ export default function Welcome({ categories = {} }) {
 
                                 <button
                                     className={`bg-green-500 text-white font-semibold px-6 py-3 rounded-xl shadow-md shadow-green-300/60 transition ${
-                                        discussionReady && !showReveal ? "block" : "hidden"
+                                        discussionReady && !showReveal
+                                            ? "block"
+                                            : "hidden"
                                     }`}
                                     onClick={startDiscussion}
                                 >
@@ -607,18 +792,33 @@ export default function Welcome({ categories = {} }) {
                     )}
 
                     <footer className="mt-10 pt-8 border-t-2 border-slate-200 text-left text-slate-600 text-base leading-relaxed">
-                        <h3 className="text-2xl font-semibold text-slate-800 mb-3">About Pakistani Imposter Game</h3>
+                        <h3 className="text-2xl font-semibold text-slate-800 mb-3">
+                            About Pakistani Imposter Game
+                        </h3>
                         <p>
-                            Welcome to the <strong>Pakistani Imposter Game</strong>, an engaging multiplayer party game that brings Pakistani culture and traditions to life.
+                            Welcome to the{" "}
+                            <strong>Pakistani Imposter Game</strong>, an
+                            engaging multiplayer party game that brings
+                            Pakistani culture and traditions to life.
                         </p>
                         <p>
-                            The game features <strong>12 diverse categories</strong> including Pakistani foods, kitchen utensils, everyday objects, occupations, animals, sports, transportation, music, hobbies, school items, brands, and video games.
+                            The game features{" "}
+                            <strong>12 diverse categories</strong> including
+                            Pakistani foods, kitchen utensils, everyday objects,
+                            occupations, animals, sports, transportation, music,
+                            hobbies, school items, brands, and video games.
                         </p>
                         <p>
-                            Perfect for family gatherings, parties, and social events, the Pakistani Imposter Game promotes cultural awareness, strategic thinking, and fun-filled entertainment.
+                            Perfect for family gatherings, parties, and social
+                            events, the Pakistani Imposter Game promotes
+                            cultural awareness, strategic thinking, and
+                            fun-filled entertainment.
                         </p>
                         <p>
-                            Whether you are celebrating a family dawat or hosting a mehndi party, this game delivers engaging entertainment that celebrates Pakistani culture and traditions.
+                            Whether you are celebrating a family dawat or
+                            hosting a mehndi party, this game delivers engaging
+                            entertainment that celebrates Pakistani culture and
+                            traditions.
                         </p>
                     </footer>
                 </div>

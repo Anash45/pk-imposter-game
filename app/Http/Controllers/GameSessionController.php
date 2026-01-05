@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Category;
 use App\Models\Game;
+use App\Models\GameMessage;
 use App\Models\GamePlayer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\URL;
@@ -107,6 +108,47 @@ class GameSessionController extends Controller
         ]);
     }
 
+    public function messages(Game $game)
+    {
+        $messages = GameMessage::where('game_id', $game->id)
+            ->latest()
+            ->take(100)
+            ->get()
+            ->sortBy('id')
+            ->values()
+            ->map(fn ($m) => [
+                'id' => $m->id,
+                'sender' => $m->sender ?? 'Player',
+                'body' => $m->body,
+                'created_at' => $m->created_at->toIso8601String(),
+            ]);
+
+        return response()->json(['messages' => $messages]);
+    }
+
+    public function sendMessage(Request $request, Game $game)
+    {
+        $data = $request->validate([
+            'sender' => 'nullable|string|max:100',
+            'body' => 'required|string|max:1000',
+        ]);
+
+        $message = GameMessage::create([
+            'game_id' => $game->id,
+            'sender' => $data['sender'] ?? 'Player',
+            'body' => $data['body'],
+        ]);
+
+        return response()->json([
+            'message' => [
+                'id' => $message->id,
+                'sender' => $message->sender ?? 'Player',
+                'body' => $message->body,
+                'created_at' => $message->created_at->toIso8601String(),
+            ],
+        ], 201);
+    }
+
     public function showPlayer(Game $game, string $token)
     {
         $player = $game->players()->where('token', $token)->firstOrFail();
@@ -124,6 +166,7 @@ class GameSessionController extends Controller
             'isImposter' => $player->is_imposter,
             'word' => $alreadyViewed ? null : $game->word,
             'voiceUrl' => $voiceUrl,
+            'gameSlug' => $game->slug,
         ]);
     }
 }

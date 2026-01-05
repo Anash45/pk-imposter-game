@@ -16,6 +16,7 @@ class Game extends Model
         'categories',
         'word',
         'status',
+        'next_game_slug',
     ];
 
     protected $casts = [
